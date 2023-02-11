@@ -1,13 +1,22 @@
 <?php
 
-namespace App\AhmedCollections;
 
-use ArrayAccess;
-use ArrayIterator;
-use Closure;
-use Exception;
-use IteratorAggregate;
-use Traversable;
+// written by ahmed abdo 😎
+
+function dot($array) {
+
+    if(!is_array($array))
+        return $array;
+
+    $mapToDot = new \stdClass();
+
+    foreach($array as $key => $val) {
+        $mapToDot->{$key} = is_array($val) ? dot($val) : $val;
+    }
+
+    return $mapToDot;
+}
+
 
 class Collection implements ArrayAccess , IteratorAggregate {
 
@@ -18,14 +27,15 @@ class Collection implements ArrayAccess , IteratorAggregate {
         $this->items = $items;
     }
 
-    public static function make($items) {
+    public static function make(array $items) {
         return new static($items);
     }
 
+  
     public function where(Closure $callback) {
         $results = [];
         foreach($this->items as $val) {
-            if($callback($val))
+            if($callback(dot($val)))
                 $results [] = $val;
         }
         return new static($results);
@@ -45,7 +55,7 @@ class Collection implements ArrayAccess , IteratorAggregate {
             throw new Exception("get needs at least one argument");
 
         if(count($keys) == 1)
-            return $this->items[$keys[0]] ?? null;
+            return new static($this->items[$keys[0]] ?? []);
 
         return $this->getCallback(fn($key) => in_array($key, $keys));
     }
@@ -104,8 +114,22 @@ class Collection implements ArrayAccess , IteratorAggregate {
         return new static ($results);
     }
 
+
+    public function reverse() {
+        return new static(array_reverse($this->items, true));
+    }
+
     public function map(Closure $callback) {
-        $results = array_map($callback, $this->items);
+        $results = [];
+
+        foreach($this->items as $key => $val) {
+            try {
+                $results [] = $callback(dot($val), $key);
+            }catch(\Exception $e) {
+                $results [] = $callback(dot($val));   
+            }
+        }
+
         return new static($results);
     }
 
@@ -129,6 +153,41 @@ class Collection implements ArrayAccess , IteratorAggregate {
         return new static(array_reverse($results));
     }
 
+    public function groupBy($key) {
+        $results = [];
+        foreach($this->items as $index => $val) {
+            $results[$val[$key] ?? $key][] = $val;
+        }
+
+        return new static($results);
+    }
+
+    public function groupByCallBack($callback) {
+        $results = [];
+        foreach($this->items as $index => $val) {
+            $groupStr = $callback(dot($val));
+            if(is_array($val)) {
+                foreach($val as $subVal) {
+                    if(str_contains($subVal, $groupStr))
+                        $results[$groupStr][] = $val; 
+                }
+            }
+        }
+
+        return new static($results);
+    }
+
+
+    public function each($callback) {
+        foreach ($this->items as $index => $item) {
+            try {
+                $callback(dot($item), $index);
+            }catch(Exception $e) {
+                $callback(dot($item));
+            }
+        }
+    }
+ 
     public function collect() {
         return $this;
     }

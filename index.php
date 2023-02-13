@@ -2,7 +2,7 @@
 
 require_once "Collection.php";
 
-//usage examples
+//useage examples
 
 $users = [
   
